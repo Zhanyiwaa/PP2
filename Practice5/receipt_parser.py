@@ -119,5 +119,5 @@ def parse_receipt(file_path):
 # ---------------------------------------------------
 
 if __name__ == "__main__":
-    result = parse_receipt("raw.txt")
+    result = parse_receipt("/Users/zaniasahmardanovna/git/work/PP2/Practice5/raw.txt")
     print(json.dumps(result, indent=4, ensure_ascii=False))
