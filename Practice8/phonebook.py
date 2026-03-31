@@ -1,5 +1,7 @@
 import psycopg2
+import os
 from connect import connect
+
 
 
 # =========================================
@@ -32,6 +34,8 @@ def create_table():
 # =========================================
 # EXECUTE SQL FILES
 # =========================================
+import os
+
 def execute_sql_file(filename):
     conn = connect()
     if conn is None:
@@ -39,9 +43,14 @@ def execute_sql_file(filename):
 
     try:
         cur = conn.cursor()
-        with open(filename, "r", encoding="utf-8") as f:
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(base_dir, filename)
+
+        with open(file_path, "r", encoding="utf-8") as f:
             sql = f.read()
             cur.execute(sql)
+
         conn.commit()
         cur.close()
         print(f"{filename} executed successfully.")
