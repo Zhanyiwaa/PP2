@@ -24,7 +24,7 @@ food = generate_food()
 score = 0
 level = 1
 foods_to_next_level = 3
-speed = 12
+speed = 5
 def draw_snake():
     for block in snake:
         pygame.draw.rect(screen, GREEN, (block[0], block[1], CELL_SIZE, CELL_SIZE))
