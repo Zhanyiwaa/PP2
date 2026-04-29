@@ -1,88 +1,69 @@
--- процедура: добавить номер телефона к существующему контакту
-CREATE OR REPLACE PROCEDURE add_phone(
-    p_contact_name VARCHAR,
-    p_phone        VARCHAR,
-    p_type         VARCHAR
-)
+-- add phone to existing contact by full name
+CREATE OR REPLACE PROCEDURE add_phone(p_name VARCHAR, p_phone VARCHAR, p_type VARCHAR)
 LANGUAGE plpgsql AS $$
 DECLARE
-    v_contact_id INTEGER;
+    v_id INTEGER;
 BEGIN
-    -- ищем контакт по имени
-    SELECT id INTO v_contact_id FROM contacts WHERE name = p_contact_name;
+    -- find contact by first and last name
+    SELECT id INTO v_id FROM contacts
+    WHERE first_name ILIKE split_part(p_name, ' ', 1)
+    AND last_name ILIKE split_part(p_name, ' ', 2)
+    LIMIT 1;
 
-    IF v_contact_id IS NULL THEN
-        RAISE EXCEPTION 'Контакт "%" не найден', p_contact_name;
+    IF v_id IS NULL THEN
+        RAISE EXCEPTION 'Contact not found';
     END IF;
 
-    IF p_type NOT IN ('home', 'work', 'mobile') THEN
-        RAISE EXCEPTION 'Тип телефона должен быть: home, work или mobile';
-    END IF;
-
-    INSERT INTO phones (contact_id, phone, type)
-    VALUES (v_contact_id, p_phone, p_type);
+    INSERT INTO phones(contact_id, phone, type) VALUES(v_id, p_phone, p_type);
 END;
 $$;
 
-
--- процедура: переместить контакт в другую группу
--- если группы нет - создаём её
-CREATE OR REPLACE PROCEDURE move_to_group(
-    p_contact_name VARCHAR,
-    p_group_name   VARCHAR
-)
+-- move contact to another group, create group if not exists
+CREATE OR REPLACE PROCEDURE move_to_group(p_name VARCHAR, p_group VARCHAR)
 LANGUAGE plpgsql AS $$
 DECLARE
-    v_group_id   INTEGER;
-    v_contact_id INTEGER;
+    v_cid INTEGER;
+    v_gid INTEGER;
 BEGIN
-    -- ищем группу, если нет - создаём
-    SELECT id INTO v_group_id FROM groups WHERE name = p_group_name;
+    -- find contact
+    SELECT id INTO v_cid FROM contacts
+    WHERE first_name ILIKE split_part(p_name, ' ', 1)
+    AND last_name ILIKE split_part(p_name, ' ', 2)
+    LIMIT 1;
 
-    IF v_group_id IS NULL THEN
-        INSERT INTO groups (name) VALUES (p_group_name) RETURNING id INTO v_group_id;
+    IF v_cid IS NULL THEN
+        RAISE EXCEPTION 'Contact not found';
     END IF;
 
-    -- ищем контакт
-    SELECT id INTO v_contact_id FROM contacts WHERE name = p_contact_name;
-
-    IF v_contact_id IS NULL THEN
-        RAISE EXCEPTION 'Контакт "%" не найден', p_contact_name;
+    -- find or create group
+    SELECT id INTO v_gid FROM groups WHERE name ILIKE p_group;
+    IF v_gid IS NULL THEN
+        INSERT INTO groups(name) VALUES(p_group) RETURNING id INTO v_gid;
     END IF;
 
-    UPDATE contacts SET group_id = v_group_id WHERE id = v_contact_id;
+    UPDATE contacts SET group_id = v_gid WHERE id = v_cid;
 END;
 $$;
 
-
--- функция: поиск контактов по имени, email или номеру телефона
+-- search contacts by name, email or phone
 CREATE OR REPLACE FUNCTION search_contacts(p_query TEXT)
-RETURNS TABLE(
-    contact_id INTEGER,
-    name       VARCHAR,
-    email      VARCHAR,
-    birthday   DATE,
-    group_name VARCHAR,
-    phone      VARCHAR,
-    phone_type VARCHAR
-) AS $$
+RETURNS TABLE(id INT, first_name VARCHAR, last_name VARCHAR,
+              email VARCHAR, birthday DATE, group_name VARCHAR, phones_csv TEXT)
+LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
     SELECT DISTINCT
-        c.id,
-        c.name,
-        c.email,
-        c.birthday,
+        c.id, c.first_name, c.last_name, c.email, c.birthday,
         g.name,
-        ph.phone,
-        ph.type
+        STRING_AGG(p.phone || ' (' || COALESCE(p.type,'?') || ')', ', ')
+            OVER (PARTITION BY c.id)
     FROM contacts c
-    LEFT JOIN groups g  ON c.group_id = g.id
-    LEFT JOIN phones ph ON ph.contact_id = c.id
-    WHERE
-        c.name  ILIKE '%' || p_query || '%'
-        OR c.email ILIKE '%' || p_query || '%'
-        OR ph.phone ILIKE '%' || p_query || '%'
-    ORDER BY c.name;
+    LEFT JOIN groups g ON g.id = c.group_id
+    LEFT JOIN phones p ON p.contact_id = c.id
+    WHERE c.first_name ILIKE '%' || p_query || '%'
+       OR c.last_name  ILIKE '%' || p_query || '%'
+       OR c.email      ILIKE '%' || p_query || '%'
+       OR p.phone      ILIKE '%' || p_query || '%'
+    ORDER BY c.last_name, c.first_name;
 END;
-$$ LANGUAGE plpgsql;
+$$;

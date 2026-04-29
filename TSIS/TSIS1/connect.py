@@ -1,6 +1,6 @@
+# connect.py - creates connection to PostgreSQL
 import psycopg2
-from config import DB_CONFIG
+from config import DB
 
-# просто подключаемся к базе данных
-def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
+def get_conn():
+    return psycopg2.connect(**DB)

@@ -1,5 +1,5 @@
-# настройки подключения к базе данных
-DB_CONFIG = {
+# database connection settings
+DB = {
     "host": "localhost",
     "port": 5432,
     "database": "phonebook_db",

@@ -25,7 +25,7 @@ direction = (CELL_SIZE, 0)
 score = 0
 level = 1
 foods_to_next_level = 3
-speed = 12
+speed = 5
 
 # Новые переменные для еды
 food_timer = 0
